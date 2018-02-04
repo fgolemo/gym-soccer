@@ -1,7 +1,7 @@
 import os
 import time
 
-from vrepper.vrepper import vrepper
+from vrepper.core import vrepper
 
 venv = vrepper(headless=False)
 venv.start()

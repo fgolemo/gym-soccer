@@ -6,7 +6,7 @@ import numpy as np
 from gym import error, spaces
 
 try:
-    from vrepper.vrepper import vrepper
+    from vrepper.core import vrepper
 except ImportError as e:
     raise error.DependencyNotInstalled(
         "{}. (HINT: you can install VRepper dependencies with 'pip install vrepper.)'".format(e))
