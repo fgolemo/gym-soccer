@@ -33,9 +33,10 @@ class ErgoBallThrowAirtimeEnv(gym.Env):
 
         joint_boxes = spaces.Box(low=JOINT_LIMITS_MAXMIN[0], high=JOINT_LIMITS_MAXMIN[1], shape=6)
 
-        velocity_boxes = (joint_boxes, spaces.Box(low=VELOCITY_LIMITS[0], high=VELOCITY_LIMITS[1], shape=(6)))
+        obs_box = spaces.Box(low=-np.inf, high=np.inf,
+                             shape=(6 + 6 + 3))  # 6 joint pos, 6 joint vel, 3 ball corrdinates
 
-        self.observation_space = spaces.Tuple(velocity_boxes)
+        self.observation_space = obs_box
         self.action_space = joint_boxes
 
         self.minima = [JOINT_LIMITS[i][0] for i in range(6)]
@@ -77,7 +78,7 @@ class ErgoBallThrowAirtimeEnv(gym.Env):
 
     def _getReward(self):
         reward = 0
-        if self.ball_collision.is_colliding() == False:
+        if not self.ball_collision.is_colliding():
             # then the ball is currently in the air
             reward = 10
 
@@ -90,7 +91,7 @@ class ErgoBallThrowAirtimeEnv(gym.Env):
             pos.append(m.get_joint_angle())
             forces.append(m.get_joint_velocity()[0])
 
-        self.observation = np.hstack((pos, forces)).astype('float32')
+        self.observation = np.hstack((pos, forces, self.ball.get_position())).astype('float32')
 
     def _gotoPos(self, pos):
         for i, m in enumerate(self.motors):
@@ -104,7 +105,7 @@ class ErgoBallThrowAirtimeEnv(gym.Env):
 
     def _step(self, actions):
         actions = self._clipActions(actions)
-        
+
         # step
         self._gotoPos(actions)
         self.venv.step_blocking_simulation()
@@ -134,7 +135,7 @@ def ErgoBallThrowAirtimeNormGEnv(env_id):
 if __name__ == '__main__':
     import gym_vrep
 
-    env = gym.make("ErgoBallThrowAirtime-Headless-Normalized-v0")
+    env = gym.make("ErgoBallThrowAirtime-Graphical-Normalized-v0")
 
     for k in range(3):
         observation = env.reset()
