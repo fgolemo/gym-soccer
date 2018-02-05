@@ -4,61 +4,55 @@ import time
 import gym
 import numpy as np
 from gym import error, spaces
-
-from gym_vrep.envs.constants import JOINT_LIMITS
-
-try:
-    from vrepper.core import vrepper
-except ImportError as e:
-    raise error.DependencyNotInstalled(
-        "{}. (HINT: you can install VRepper dependencies with 'pip install vrepper.)'".format(e))
+import math
 
 import logging
+
+from gym_vrep.envs.constants import JOINT_LIMITS
+from gym_vrep.envs.normalized_wrapper import NormalizedActWrapper, NormalizedObsWrapper
+from vrepper.core import vrepper
 
 logger = logging.getLogger(__name__)
 
 JOINT_LIMITS_MAXMIN = [-150, 150]
 
-FORCE_LIMITS = [-5.0, 5.0]
+VELOCITY_LIMITS = [-np.inf, np.inf]  # observations
 
 REST_POS = [0, -90, 35, 0, 55, -90]
 
-BALL_POS = [.035, .035, .035,  # size
-            0, 0.05, .3,  # position
-            .01]  # weight)
-
-REWARD_SCALING = 10
+BALL_POS = [0, 0.05, .28]
 
 
-class ErgoBallDynRewEnv(gym.Env):
-    ball_baseline = 0
+class ErgoBallThrowAirtimeEnv(gym.Env):
     vrep_running = False
+    max_z = 0
 
-    def __init__(self):
+    def __init__(self, headless=True):
+        self.headless = headless
+        self._startEnv(headless)
+
         joint_boxes = spaces.Box(low=JOINT_LIMITS_MAXMIN[0], high=JOINT_LIMITS_MAXMIN[1], shape=6)
 
-        force_boxes = (joint_boxes, spaces.Box(low=FORCE_LIMITS[0], high=FORCE_LIMITS[1], shape=(6)))
+        velocity_boxes = (joint_boxes, spaces.Box(low=VELOCITY_LIMITS[0], high=VELOCITY_LIMITS[1], shape=(6)))
 
-        self.observation_space = spaces.Tuple(force_boxes)
-        self.action_space = spaces.Tuple(joint_boxes)
+        self.observation_space = spaces.Tuple(velocity_boxes)
+        self.action_space = joint_boxes
 
         self.minima = [JOINT_LIMITS[i][0] for i in range(6)]
         self.maxima = [JOINT_LIMITS[i][1] for i in range(6)]
-
-    def _actualInit(self, headless=True):
-        self._startEnv(headless)
-        self.vrep_running = True
 
     def _startEnv(self, headless):
         self.venv = vrepper(headless=headless)
         self.venv.start()
         current_dir = os.path.dirname(os.path.realpath(__file__))
-        self.venv.load_scene(current_dir + '/../scenes/poppy_ergo_jr_vanilla_ball.ttt')
+        self.venv.load_scene(current_dir + '/../scenes/poppy_ergo_jr_vanilla_ball2.ttt')
         motors = []
         for i in range(6):
             motor = self.venv.get_object_by_name('m{}'.format(i + 1), is_joint=True)
             motors.append(motor)
         self.motors = motors
+        self.ball = self.venv.get_object_by_name("static_ball")
+        self.ball_collision = self.venv.get_collision_object("ballcoll")
 
     def _restPos(self):
         self.venv.stop_simulation()
@@ -67,41 +61,36 @@ class ErgoBallDynRewEnv(gym.Env):
         for i, m in enumerate(self.motors):
             m.set_position_target(REST_POS[i])
 
-        params = self.venv.create_params([], BALL_POS, [], '')
+        self.ball.set_position(*BALL_POS)
 
-        self.venv.call_script_function('spawnBall', params)
-        time.sleep(.5)
-        self.ball = self.venv.get_object_by_name("ball")
+        if self.headless:
+            time.sleep(.4)  # I have yet to test this, is faster if headless
+        else:
+            time.sleep(.5)
 
         self.venv.make_simulation_synchronous(True)
 
     def _reset(self):
-        if not self.vrep_running:
-            self._actualInit()
-
         self._restPos()
-
-        self.ballMaxPos = 0
-        self.ball_baseline = self._getCurrentBall()
-
         self._self_observe()
         return self.observation
 
-    def _getCurrentBall(self):
-        ballPos = self.ball.get_position()
-        return ballPos[2]
-
     def _getReward(self):
-        return (self._getCurrentBall() - self.ball_baseline) * REWARD_SCALING
+        reward = 0
+        if self.ball_collision.is_colliding() == False:
+            # then the ball is currently in the air
+            reward = 10
+
+        return reward
 
     def _self_observe(self):
         pos = []
         forces = []
         for m in self.motors:
             pos.append(m.get_joint_angle())
-            forces += m.get_joint_force()
+            forces.append(m.get_joint_velocity()[0])
 
-        self.observation = np.array(pos + forces).astype('float32')
+        self.observation = np.hstack((pos, forces)).astype('float32')
 
     def _gotoPos(self, pos):
         for i, m in enumerate(self.motors):
@@ -115,7 +104,7 @@ class ErgoBallDynRewEnv(gym.Env):
 
     def _step(self, actions):
         actions = self._clipActions(actions)
-
+        
         # step
         self._gotoPos(actions)
         self.venv.step_blocking_simulation()
@@ -133,22 +122,28 @@ class ErgoBallDynRewEnv(gym.Env):
         pass
 
 
-def randomAction(obs, step=1):
-    tmp = obs[0] + np.random.uniform(-step, step, 6)
-    # tmp = tuple(np.array([action]) for action in tmp.tolist())
-    return tmp
+def ErgoBallThrowAirtimeNormHEnv(env_id):
+    return NormalizedObsWrapper(NormalizedActWrapper(gym.make(env_id)))
+
+
+def ErgoBallThrowAirtimeNormGEnv(env_id):
+    return NormalizedObsWrapper(
+        NormalizedActWrapper(gym.make(env_id)))
 
 
 if __name__ == '__main__':
-    env = ErgoBallDynEnv()
-    env._actualInit(headless=False)
+    import gym_vrep
+
+    env = gym.make("ErgoBallThrowAirtime-Headless-Normalized-v0")
 
     for k in range(3):
         observation = env.reset()
-        for _ in range(20):
-            action_real = randomAction(observation, step=20)
-            observation, reward, done, info = env.step(action_real)
-            print (observation, reward)
+        for i in range(30):
+            if i % 5 == 0:
+                # action = env.action_space.sample() # this doesn't work
+                action = np.random.uniform(low=-1.0, high=1.0, size=(6))
+            observation, reward, done, info = env.step(action)
+            print(action, observation, reward)
 
     env.close()
 
