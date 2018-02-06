@@ -8,7 +8,7 @@ import math
 
 import logging
 
-from gym_vrep.envs.constants import JOINT_LIMITS
+from gym_vrep.envs.constants import JOINT_LIMITS, BALL_STATES, RANDOM_NOISE
 from gym_vrep.envs.normalized_wrapper import NormalizedActWrapper, NormalizedObsWrapper
 from vrepper.core import vrepper
 
@@ -22,14 +22,19 @@ REST_POS = [0, -90, 35, 0, 55, -90]
 
 BALL_POS = [0, 0.05, .28]
 
-
 class ErgoBallThrowAirtimeEnv(gym.Env):
     vrep_running = False
     max_z = 0
+    done = False
 
-    def __init__(self, headless=True):
+    def __init__(self, headless=True, random=False):
         self.headless = headless
+        self.random = random
         self._startEnv(headless)
+
+        self.metadata = {
+            'render.modes': ['human'], # , 'rgb_array' # this is just dummy. Rendering is done by V-Rep
+        }
 
         joint_boxes = spaces.Box(low=JOINT_LIMITS_MAXMIN[0], high=JOINT_LIMITS_MAXMIN[1], shape=6)
 
@@ -39,8 +44,13 @@ class ErgoBallThrowAirtimeEnv(gym.Env):
         self.observation_space = obs_box
         self.action_space = joint_boxes
 
+        self.state = BALL_STATES["in_cup"]
+
         self.minima = [JOINT_LIMITS[i][0] for i in range(6)]
         self.maxima = [JOINT_LIMITS[i][1] for i in range(6)]
+
+    def _seed(self, seed=None):
+        np.random.seed(seed)
 
     def _startEnv(self, headless):
         self.venv = vrepper(headless=headless)
@@ -57,19 +67,47 @@ class ErgoBallThrowAirtimeEnv(gym.Env):
 
     def _restPos(self):
         self.venv.stop_simulation()
-        self.venv.start_simulation(is_sync=False)
+        self.venv.start_simulation(is_sync=True)
 
         for i, m in enumerate(self.motors):
             m.set_position_target(REST_POS[i])
 
+        for _ in range(15):
+            self.venv.step_blocking_simulation()
+
         self.ball.set_position(*BALL_POS)
 
-        if self.headless:
-            time.sleep(.4)  # I have yet to test this, is faster if headless
-        else:
-            time.sleep(.5)
+        print("dropped the ball")
+
+        for _ in range(10):
+            self.venv.step_blocking_simulation()
+
+        print("waited for ball drop")
+
+        self.state = BALL_STATES["in_cup"]
+
+        if self.random:
+            self.randomize()
+
+        print("randomized")
+        for _ in range(15):
+            self.venv.step_blocking_simulation()
+        print("waited for randomization")
 
         self.venv.make_simulation_synchronous(True)
+
+    def randomize(self):
+        new_pos = []
+        for i in range(6):
+            new_pos.append(REST_POS[i] + np.random.randint(
+                low=RANDOM_NOISE[i][0],
+                high=RANDOM_NOISE[i][1],
+                size=1)[0])
+        print(new_pos)
+
+        for i, m in enumerate(self.motors):
+            m.set_position_target(new_pos[i])
+
 
     def _reset(self):
         self._restPos()
@@ -77,10 +115,18 @@ class ErgoBallThrowAirtimeEnv(gym.Env):
         return self.observation
 
     def _getReward(self):
+
         reward = 0
         if not self.ball_collision.is_colliding():
             # then the ball is currently in the air
             reward = 10
+            if self.state == BALL_STATES["in_cup"]: # then we have lift-off
+                self.state = BALL_STATES["in_air"]
+
+        else:
+            if self.state == BALL_STATES["in_air"]: # then it has hit the ground
+                self.state = BALL_STATES["on_floor"]
+                self.done = True
 
         return reward
 
@@ -113,14 +159,21 @@ class ErgoBallThrowAirtimeEnv(gym.Env):
         # observe again
         self._self_observe()
 
-        return self.observation, self._getReward(), False, {}
+        return self.observation, self._getReward(), self.done, {}
 
     def _close(self):
         self.venv.stop_simulation()
         self.venv.end()
 
     def _render(self, mode='human', close=False):
+        # This intentionally does nothing and is only here for wrapper functions.
+        # if you want graphical output, use the environments
+        # "ErgoBallThrowAirtime-Graphical-Normalized-v0"
+        # or
+        # "ErgoBallThrowAirtime-Graphical-v0"
+        # ... not the ones with "...-Headless-..."
         pass
+
 
 
 def ErgoBallThrowAirtimeNormHEnv(env_id):
@@ -135,16 +188,19 @@ def ErgoBallThrowAirtimeNormGEnv(env_id):
 if __name__ == '__main__':
     import gym_vrep
 
-    env = gym.make("ErgoBallThrowAirtime-Graphical-Normalized-v0")
+    env = gym.make("ErgoBallThrowAirtime-Graphical-Random-Normalized-v0")
 
     for k in range(3):
         observation = env.reset()
+        print ("init done")
+        time.sleep(2)
         for i in range(30):
             if i % 5 == 0:
                 # action = env.action_space.sample() # this doesn't work
                 action = np.random.uniform(low=-1.0, high=1.0, size=(6))
             observation, reward, done, info = env.step(action)
-            print(action, observation, reward)
+            # print(action, observation, reward)
+            print (".")
 
     env.close()
 
