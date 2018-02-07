@@ -125,11 +125,19 @@ register(
 )
 
 register(
-    id='ErgoFightStatic-v0',
+    id='ErgoFightStatic-Graphical-v0',
     entry_point='gym_vrep.envs:ErgoFightStaticEnv',
     timestep_limit=150,
     reward_threshold=150,
     kwargs={'headless': False},
+)
+
+register(
+    id='ErgoFightStatic-Headless-v0',
+    entry_point='gym_vrep.envs:ErgoFightStaticEnv',
+    timestep_limit=150,
+    reward_threshold=150,
+    kwargs={'headless': True},
 )
 
 

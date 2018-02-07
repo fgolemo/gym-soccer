@@ -120,7 +120,7 @@ class ErgoFightStaticEnv(gym.Env):
         pos = self._normalize(pos) # move pos into range [-1,1]
 
         joint_vel = np.hstack((pos, vel)).astype('float32')
-        cam_image = self.venv.get_image(self.cam)
+        cam_image = self.venv.flip180(self.venv.get_image(self.cam))
         self.observation =(cam_image, joint_vel)
 
     def _gotoPos(self, pos):
@@ -171,8 +171,13 @@ class ErgoFightStaticEnv(gym.Env):
 
 if __name__ == '__main__':
     import gym_vrep
+    import matplotlib.pyplot as plt
+    env = gym.make("ErgoFightStatic-Headless-v0")
 
-    env = gym.make("ErgoFightStatic-v0")
+    plt.ion()
+    img = np.random.uniform(0, 255, (256, 256, 3))
+    plt_img = plt.imshow(img, interpolation='none', animated=True, label="blah")
+    plt_ax = plt.gca()
 
     for k in range(3):
         observation = env.reset()
@@ -183,6 +188,9 @@ if __name__ == '__main__':
                 # action = env.action_space.sample() # this doesn't work
                 action = np.random.uniform(low=-1.0, high=1.0, size=(6))
             observation, reward, done, info = env.step(action)
+            plt_img.set_data(observation[0])
+            plt_ax.plot([0])
+            plt.pause(0.001)  # I found this necessary - otherwise no visible img
             print(action, observation[0].shape, observation[1], reward, done)
             print(".")
 
