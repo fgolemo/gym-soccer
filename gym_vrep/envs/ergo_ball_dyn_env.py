@@ -5,6 +5,8 @@ import gym
 import numpy as np
 from gym import error, spaces
 
+from gym_vrep.envs.constants import JOINT_LIMITS
+
 try:
     from vrepper.core import vrepper
 except ImportError as e:
@@ -14,15 +16,6 @@ except ImportError as e:
 import logging
 
 logger = logging.getLogger(__name__)
-
-JOINT_LIMITS = [
-    (-150, 150),
-    (-90, 125),
-    (-90, 90),
-    (-90, 90),
-    (-90, 90),
-    (-90, 90)
-]
 
 JOINT_LIMITS_MAXMIN = [-150, 150]
 

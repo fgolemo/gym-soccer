@@ -28,7 +28,7 @@ def reset():
 
     print("RESETTING BALL")
 
-    ball.set_position(0, 0.05, .3)
+    ball.set_position(0, 0.05, .28)
 
     # test = venv.call_script_function('spawnBall', params)
     # print(test)

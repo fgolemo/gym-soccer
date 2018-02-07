@@ -67,3 +67,60 @@ register(
     nondeterministic = True,
 )
 
+register(
+    id='ErgoBallThrowAirtime-Headless-v0',
+    entry_point='gym_vrep.envs:ErgoBallThrowAirtimeEnv',
+    timestep_limit=50,
+    kwargs={'headless' : True},
+    reward_threshold=500.0
+    # nondeterministic = True,
+)
+
+register(
+    id='ErgoBallThrowAirtime-Graphical-v0',
+    entry_point='gym_vrep.envs:ErgoBallThrowAirtimeEnv',
+    timestep_limit=50,
+    kwargs={'headless' : False},
+    reward_threshold=500.0
+)
+
+register(
+    id='ErgoBallThrowAirtime-Headless-Random-v0',
+    entry_point='gym_vrep.envs:ErgoBallThrowAirtimeEnv',
+    timestep_limit=50,
+    kwargs={'headless' : True, 'random': True},
+    reward_threshold=500.0
+)
+
+register(
+    id='ErgoBallThrowAirtime-Graphical-Random-v0',
+    entry_point='gym_vrep.envs:ErgoBallThrowAirtimeEnv',
+    timestep_limit=50,
+    kwargs={'headless' : False, 'random': True},
+    reward_threshold=500.0
+)
+
+
+register(
+    id='ErgoBallThrowAirtime-Headless-Normalized-v0',
+    entry_point='gym_vrep.envs:ErgoBallThrowAirtimeNormHEnv',
+    kwargs={'env_id': 'ErgoBallThrowAirtime-Headless-v0'}
+)
+
+register(
+    id='ErgoBallThrowAirtime-Graphical-Normalized-v0',
+    entry_point='gym_vrep.envs:ErgoBallThrowAirtimeNormGEnv',
+    kwargs={'env_id': 'ErgoBallThrowAirtime-Graphical-v0'}
+)
+
+register(
+    id='ErgoBallThrowAirtime-Headless-Random-Normalized-v0',
+    entry_point='gym_vrep.envs:ErgoBallThrowAirtimeNormHEnv',
+    kwargs={'env_id': 'ErgoBallThrowAirtime-Headless-Random-v0'}
+)
+
+register(
+    id='ErgoBallThrowAirtime-Graphical-Random-Normalized-v0',
+    entry_point='gym_vrep.envs:ErgoBallThrowAirtimeNormGEnv',
+    kwargs={'env_id': 'ErgoBallThrowAirtime-Graphical-Random-v0'}
+)
