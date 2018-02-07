@@ -21,3 +21,5 @@ RANDOM_NOISE = [
     (-3, 3),
     (-3, 3)
 ]
+
+JOINT_LIMITS_MAXMIN = [-150, 150]
