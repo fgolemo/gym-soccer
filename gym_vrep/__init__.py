@@ -140,4 +140,34 @@ register(
     kwargs={'headless': True},
 )
 
+register(
+    id='ErgoFightStatic-Graphical-NoImg-v0',
+    entry_point='gym_vrep.envs:ErgoFightStaticEnv',
+    timestep_limit=150,
+    reward_threshold=150,
+    kwargs={'headless': False, 'with_img': False},
+)
 
+register(
+    id='ErgoFightStatic-Headless-NoImg-v0',
+    entry_point='gym_vrep.envs:ErgoFightStaticEnv',
+    timestep_limit=150,
+    reward_threshold=150,
+    kwargs={'headless': True, 'with_img': False},
+)
+
+register(
+    id='ErgoFightStatic-Graphical-OnlyImg-v0',
+    entry_point='gym_vrep.envs:ErgoFightStaticEnv',
+    timestep_limit=150,
+    reward_threshold=150,
+    kwargs={'headless': False, 'only_img': True},
+)
+
+register(
+    id='ErgoFightStatic-Headless-OnlyImg-v0',
+    entry_point='gym_vrep.envs:ErgoFightStaticEnv',
+    timestep_limit=150,
+    reward_threshold=150,
+    kwargs={'headless': True, 'only_img': True},
+)

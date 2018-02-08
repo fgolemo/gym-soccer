@@ -24,8 +24,10 @@ INVULNERABILITY_AFTER_HIT = 3  # how many frames after a hit to reset
 
 
 class ErgoFightStaticEnv(gym.Env):
-    def __init__(self, headless=True):
+    def __init__(self, headless=True, with_img=True, only_img=False):
         self.headless = headless
+        self.with_img = with_img
+        self.only_img = only_img
 
         self._startEnv(headless)
 
@@ -35,14 +37,19 @@ class ErgoFightStaticEnv(gym.Env):
 
         joint_boxes = spaces.Box(low=-1, high=1, shape=6)
 
-        # own_joints = spaces.Box(low=-1, high=1,
-        #                         shape=(6 + 6 + 3))  # 6 joint pos, 6 joint vel, 3 tip corrdinates
+        if self.with_img:
+            cam_image = spaces.Box(low=0, high=255, shape=(256, 256, 3))
 
-        own_joints = spaces.Box(low=-1, high=1, shape=(6 + 6))  # 6 joint pos, 6 joint vel
+            if self.only_img:
+                self.observation_space = cam_image
+            else:
+                own_joints = spaces.Box(low=-1, high=1, shape=(6 + 6))  # 6 joint pos, 6 joint vel
+                self.observation_space = spaces.Tuple((cam_image, own_joints))
+        else:
+            # 6 own joint pos, 6 own joint vel, 6 enemy joint pos, 6 enemy joint vel
+            all_joints = spaces.Box(low=-1, high=1, shape=(6 + 6 + 6 + 6))
+            self.observation_space = all_joints
 
-        cam_image = spaces.Box(low=0, high=255, shape=(256, 256, 3))
-
-        self.observation_space = spaces.Tuple((cam_image, own_joints))
         self.action_space = joint_boxes
 
         self.diffs = [JOINT_LIMITS[i][1] - JOINT_LIMITS[i][0] for i in range(6)]
@@ -59,7 +66,7 @@ class ErgoFightStaticEnv(gym.Env):
         self.motors = ([], [])
         for robot_idx in range(2):
             for motor_idx in range(6):
-                motor = self.venv.get_object_by_name('r{}m{}'.format(robot_idx+1, motor_idx + 1), is_joint=True)
+                motor = self.venv.get_object_by_name('r{}m{}'.format(robot_idx + 1, motor_idx + 1), is_joint=True)
                 self.motors[robot_idx].append(motor)
         self.sword_collision = self.venv.get_collision_object("sword_hit")
         self.cam = self.venv.get_object_by_name('cam', is_joint=False).handle
@@ -75,7 +82,7 @@ class ErgoFightStaticEnv(gym.Env):
 
         self.randomize()
 
-        for _ in range(15): #TODO test if 15 frames is enough
+        for _ in range(15):  # TODO test if 15 frames is enough
             self.venv.step_blocking_simulation()
 
     def randomize(self):
@@ -89,7 +96,7 @@ class ErgoFightStaticEnv(gym.Env):
     def _reset(self):
         self._restPos()
         self._self_observe()
-        self.frames_after_hit = -1 # this enables hits / disables invulnerability frame
+        self.frames_after_hit = -1  # this enables hits / disables invulnerability frame
         return self.observation
 
     def _getReward(self):
@@ -110,18 +117,29 @@ class ErgoFightStaticEnv(gym.Env):
 
         return reward
 
-    def _self_observe(self):
+    def _get_robot_posvel(self, robot_id):
         pos = []
         vel = []
-        for i, m in enumerate(self.motors[0]):
+        for i, m in enumerate(self.motors[robot_id]):
             pos.append(m.get_joint_angle())
             vel.append(m.get_joint_velocity()[0])
 
-        pos = self._normalize(pos) # move pos into range [-1,1]
+        pos = self._normalize(pos)  # move pos into range [-1,1]
 
         joint_vel = np.hstack((pos, vel)).astype('float32')
-        cam_image = self.venv.flip180(self.venv.get_image(self.cam))
-        self.observation =(cam_image, joint_vel)
+        return joint_vel
+
+    def _self_observe(self):
+        own_joint_vel = self._get_robot_posvel(0)
+        if self.with_img:
+            cam_image = self.venv.flip180(self.venv.get_image(self.cam))
+            if self.only_img:
+                self.observation = cam_image
+            else:
+                self.observation = (cam_image, own_joint_vel)
+        else:
+            enemy_joint_vel = self._get_robot_posvel(1)
+            self.observation = np.hstack((own_joint_vel, enemy_joint_vel)).astype('float32')
 
     def _gotoPos(self, pos):
         for i, m in enumerate(self.motors[0]):
@@ -169,9 +187,11 @@ class ErgoFightStaticEnv(gym.Env):
         # ... not the ones with "...-Headless-..."
         pass
 
+
 if __name__ == '__main__':
     import gym_vrep
     import matplotlib.pyplot as plt
+
     env = gym.make("ErgoFightStatic-Headless-v0")
 
     plt.ion()
