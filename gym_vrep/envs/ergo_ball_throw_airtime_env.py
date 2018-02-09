@@ -122,7 +122,7 @@ class ErgoBallThrowAirtimeEnv(gym.Env):
             # then the ball is currently in the air
             reward = 10
             if self.height_based_reward:
-                reward *= self.ball.get_position()[2] # get the z coordinate for height and multiply by 10
+                reward *= self.ball.get_position()[2]*10 # get the z coordinate for height and multiply by 10
             if self.state == BALL_STATES["in_cup"]:  # then we have lift-off
                 self.state = BALL_STATES["in_air"]
 
