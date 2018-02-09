@@ -22,18 +22,20 @@ REST_POS = [0, -90, 35, 0, 55, -90]
 
 BALL_POS = [0, 0.05, .28]
 
+
 class ErgoBallThrowAirtimeEnv(gym.Env):
     vrep_running = False
     max_z = 0
     done = False
 
-    def __init__(self, headless=True, random=False):
+    def __init__(self, headless=True, random=False, height_based_reward=False):
         self.headless = headless
         self.random = random
+        self.height_based_reward = height_based_reward
         self._startEnv(headless)
 
         self.metadata = {
-            'render.modes': ['human'], # , 'rgb_array' # this is just dummy. Rendering is done by V-Rep
+            'render.modes': ['human'],  # , 'rgb_array' # this is just dummy. Rendering is done by V-Rep
         }
 
         joint_boxes = spaces.Box(low=JOINT_LIMITS_MAXMIN[0], high=JOINT_LIMITS_MAXMIN[1], shape=6)
@@ -108,7 +110,6 @@ class ErgoBallThrowAirtimeEnv(gym.Env):
         for i, m in enumerate(self.motors):
             m.set_position_target(new_pos[i])
 
-
     def _reset(self):
         self._restPos()
         self._self_observe()
@@ -120,11 +121,13 @@ class ErgoBallThrowAirtimeEnv(gym.Env):
         if not self.ball_collision.is_colliding():
             # then the ball is currently in the air
             reward = 10
-            if self.state == BALL_STATES["in_cup"]: # then we have lift-off
+            if self.height_based_reward:
+                reward *= self.ball.get_position()[2] # get the z coordinate for height and multiply by 10
+            if self.state == BALL_STATES["in_cup"]:  # then we have lift-off
                 self.state = BALL_STATES["in_air"]
 
         else:
-            if self.state == BALL_STATES["in_air"]: # then it has hit the ground
+            if self.state == BALL_STATES["in_air"]:  # then it has hit the ground
                 self.state = BALL_STATES["on_floor"]
                 self.done = True
 
@@ -175,7 +178,6 @@ class ErgoBallThrowAirtimeEnv(gym.Env):
         pass
 
 
-
 def ErgoBallThrowAirtimeNormHEnv(env_id):
     return NormalizedObsWrapper(NormalizedActWrapper(gym.make(env_id)))
 
@@ -192,7 +194,7 @@ if __name__ == '__main__':
 
     for k in range(3):
         observation = env.reset()
-        print ("init done")
+        print("init done")
         time.sleep(2)
         for i in range(30):
             if i % 5 == 0:
@@ -200,7 +202,7 @@ if __name__ == '__main__':
                 action = np.random.uniform(low=-1.0, high=1.0, size=(6))
             observation, reward, done, info = env.step(action)
             # print(action, observation, reward)
-            print (".")
+            print(".")
 
     env.close()
 

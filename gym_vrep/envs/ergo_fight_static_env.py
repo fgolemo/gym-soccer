@@ -4,7 +4,7 @@ import gym
 import numpy as np
 from gym import spaces
 import logging
-
+from skimage.transform import resize
 from gym_vrep.envs.constants import JOINT_LIMITS, BALL_STATES, RANDOM_NOISE
 from gym_vrep.envs.normalized_wrapper import NormalizedActWrapper, NormalizedObsWrapper
 from vrepper.core import vrepper
@@ -21,6 +21,7 @@ RANDOM_NOISE = [
     (-30, 30)
 ]
 INVULNERABILITY_AFTER_HIT = 3  # how many frames after a hit to reset
+IMAGE_SIZE = (84, 84)
 
 
 class ErgoFightStaticEnv(gym.Env):
@@ -38,7 +39,7 @@ class ErgoFightStaticEnv(gym.Env):
         joint_boxes = spaces.Box(low=-1, high=1, shape=6)
 
         if self.with_img:
-            cam_image = spaces.Box(low=0, high=255, shape=(256, 256, 3))
+            cam_image = spaces.Box(low=0, high=255, shape=(IMAGE_SIZE[0], IMAGE_SIZE[1], 3))
 
             if self.only_img:
                 self.observation_space = cam_image
@@ -133,6 +134,7 @@ class ErgoFightStaticEnv(gym.Env):
         own_joint_vel = self._get_robot_posvel(0)
         if self.with_img:
             cam_image = self.venv.flip180(self.venv.get_image(self.cam))
+            cam_image = resize(cam_image, IMAGE_SIZE)
             if self.only_img:
                 self.observation = cam_image
             else:
@@ -192,7 +194,7 @@ if __name__ == '__main__':
     import gym_vrep
     import matplotlib.pyplot as plt
 
-    env = gym.make("ErgoFightStatic-Headless-v0")
+    env = gym.make("ErgoFightStatic-Graphical-v0")
 
     plt.ion()
     img = np.random.uniform(0, 255, (256, 256, 3))

@@ -70,7 +70,7 @@ register(
 register(
     id='ErgoBallThrowAirtime-Headless-v0',
     entry_point='gym_vrep.envs:ErgoBallThrowAirtimeEnv',
-    timestep_limit=50,
+    timestep_limit=80,
     kwargs={'headless': True},
     reward_threshold=500.0
     # nondeterministic = True,
@@ -79,7 +79,7 @@ register(
 register(
     id='ErgoBallThrowAirtime-Graphical-v0',
     entry_point='gym_vrep.envs:ErgoBallThrowAirtimeEnv',
-    timestep_limit=50,
+    timestep_limit=80,
     kwargs={'headless': False},
     reward_threshold=500.0
 )
@@ -87,7 +87,7 @@ register(
 register(
     id='ErgoBallThrowAirtime-Headless-Random-v0',
     entry_point='gym_vrep.envs:ErgoBallThrowAirtimeEnv',
-    timestep_limit=50,
+    timestep_limit=80,
     kwargs={'headless': True, 'random': True},
     reward_threshold=500.0
 )
@@ -95,8 +95,24 @@ register(
 register(
     id='ErgoBallThrowAirtime-Graphical-Random-v0',
     entry_point='gym_vrep.envs:ErgoBallThrowAirtimeEnv',
-    timestep_limit=50,
+    timestep_limit=80,
     kwargs={'headless': False, 'random': True},
+    reward_threshold=500.0
+)
+
+register(
+    id='ErgoBallThrowAirtime-Headless-Random-Height-v0',
+    entry_point='gym_vrep.envs:ErgoBallThrowAirtimeEnv',
+    timestep_limit=80,
+    kwargs={'headless': True, 'random': True, 'height_based_reward': True},
+    reward_threshold=500.0
+)
+
+register(
+    id='ErgoBallThrowAirtime-Graphical-Random-Height-v0',
+    entry_point='gym_vrep.envs:ErgoBallThrowAirtimeEnv',
+    timestep_limit=80,
+    kwargs={'headless': False, 'random': True, 'height_based_reward': True},
     reward_threshold=500.0
 )
 
@@ -122,6 +138,18 @@ register(
     id='ErgoBallThrowAirtime-Graphical-Random-Normalized-v0',
     entry_point='gym_vrep.envs:ErgoBallThrowAirtimeNormGEnv',
     kwargs={'env_id': 'ErgoBallThrowAirtime-Graphical-Random-v0'}
+)
+
+register(
+    id='ErgoBallThrowAirtime-Headless-Random-Height-Normalized-v0',
+    entry_point='gym_vrep.envs:ErgoBallThrowAirtimeNormHEnv',
+    kwargs={'env_id': 'ErgoBallThrowAirtime-Headless-Random-Height-v0'}
+)
+
+register(
+    id='ErgoBallThrowAirtime-Graphical-Random-Height-Normalized-v0',
+    entry_point='gym_vrep.envs:ErgoBallThrowAirtimeNormGEnv',
+    kwargs={'env_id': 'ErgoBallThrowAirtime-Graphical-Random-Height-v0'}
 )
 
 register(
