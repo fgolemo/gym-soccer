@@ -25,10 +25,11 @@ IMAGE_SIZE = (84, 84)
 
 
 class ErgoFightStaticEnv(gym.Env):
-    def __init__(self, headless=True, with_img=True, only_img=False):
+    def __init__(self, headless=True, with_img=True, only_img=False, fencing_mode=False):
         self.headless = headless
         self.with_img = with_img
         self.only_img = only_img
+        self.fencing_mode = fencing_mode
 
         self._startEnv(headless)
 
@@ -106,7 +107,10 @@ class ErgoFightStaticEnv(gym.Env):
         reward = 0
         if self.sword_collision.is_colliding() and self.frames_after_hit == -1:
             reward = 1
-            self.frames_after_hit = 0
+            if not self.fencing_mode:
+                self.frames_after_hit = 0
+            else:
+                self._restPos() # if fencing mode then reset pos on each hit
 
         # the following bit is for making sure the robot doen't just hit repeatedly
         # ...so the invulnerability countdown only start when the collision is released
