@@ -4,6 +4,8 @@ import gym
 import numpy as np
 from gym import spaces
 import logging
+
+from pytorch_a2c_ppo_acktr.inference import Inference
 from skimage.transform import resize
 from gym_vrep.envs.constants import JOINT_LIMITS, BALL_STATES, RANDOM_NOISE
 from gym_vrep.envs.normalized_wrapper import NormalizedActWrapper, NormalizedObsWrapper
@@ -25,11 +27,19 @@ IMAGE_SIZE = (84, 84)
 
 
 class ErgoFightStaticEnv(gym.Env):
-    def __init__(self, headless=True, with_img=True, only_img=False, fencing_mode=False):
+    def __init__(self, headless=True, with_img=True,
+                 only_img=False, fencing_mode=False, defence=False):
         self.headless = headless
         self.with_img = with_img
         self.only_img = only_img
         self.fencing_mode = fencing_mode
+        self.defence = defence
+
+        if self.defence:
+            # load up the inference model for the attacker
+            self.inf = Inference("/home/florian/dev/pytorch-a2c-ppo-acktr/"
+                                 "trained_models/ppo/"
+                                 "ErgoFightStatic-Headless-Fencing-v0-180209225957.pt")
 
         self._startEnv(headless)
 
@@ -82,18 +92,18 @@ class ErgoFightStaticEnv(gym.Env):
         for i, m in enumerate(self.motors[0]):
             m.set_position_target(REST_POS[i])
 
-        self.randomize()
+        self.randomize(robot=1)
 
         for _ in range(15):  # TODO test if 15 frames is enough
             self.venv.step_blocking_simulation()
 
-    def randomize(self):
+    def randomize(self, robot=1):
         for i in range(6):
             new_pos = REST_POS[i] + np.random.randint(
                 low=RANDOM_NOISE[i][0],
                 high=RANDOM_NOISE[i][1],
                 size=1)[0]
-            self.motors[1][i].set_position_target(new_pos)
+            self.motors[robot][i].set_position_target(new_pos)
 
     def _reset(self):
         self._restPos()
@@ -110,7 +120,7 @@ class ErgoFightStaticEnv(gym.Env):
             if not self.fencing_mode:
                 self.frames_after_hit = 0
             else:
-                self._restPos() # if fencing mode then reset pos on each hit
+                self._restPos()  # if fencing mode then reset pos on each hit
 
         # the following bit is for making sure the robot doen't just hit repeatedly
         # ...so the invulnerability countdown only start when the collision is released
@@ -119,6 +129,9 @@ class ErgoFightStaticEnv(gym.Env):
                 self.frames_after_hit += 1
             if self.frames_after_hit >= INVULNERABILITY_AFTER_HIT:
                 self.frames_after_hit = -1
+
+        if self.defence:
+            reward *= -1
 
         return reward
 
@@ -147,8 +160,8 @@ class ErgoFightStaticEnv(gym.Env):
             enemy_joint_vel = self._get_robot_posvel(1)
             self.observation = np.hstack((own_joint_vel, enemy_joint_vel)).astype('float32')
 
-    def _gotoPos(self, pos):
-        for i, m in enumerate(self.motors[0]):
+    def _gotoPos(self, pos, robot=0):
+        for i, m in enumerate(self.motors[robot]):
             m.set_position_target(pos[i])
 
     def _normalize(self, pos):
@@ -170,9 +183,18 @@ class ErgoFightStaticEnv(gym.Env):
     def _step(self, actions):
         actions = np.clip(actions, -1, 1)  # first make sure actions are normalized
         actions = self._denormalize(actions)  # then scale them to the actual joint angles
+        robot = 0
 
         # step
-        self._gotoPos(actions)
+        if self.defence:
+            attacker_action = self.inf.get_action(self.observation)
+            self._gotoPos(attacker_action, robot=0)
+            robot = 1
+
+            #TODO: why is this less aggressive than the direct inference???
+
+
+        self._gotoPos(actions, robot=robot)
         self.venv.step_blocking_simulation()
 
         # observe again
@@ -198,29 +220,43 @@ if __name__ == '__main__':
     import gym_vrep
     import matplotlib.pyplot as plt
 
-    env = gym.make("ErgoFightStatic-Graphical-v0")
+    def test_normal_mode():
 
-    plt.ion()
-    img = np.random.uniform(0, 255, (256, 256, 3))
-    plt_img = plt.imshow(img, interpolation='none', animated=True, label="blah")
-    plt_ax = plt.gca()
+        env = gym.make("ErgoFightStatic-Graphical-v0")
 
-    for k in range(3):
-        observation = env.reset()
-        print("init done")
+        plt.ion()
+        img = np.random.uniform(0, 255, (256, 256, 3))
+        plt_img = plt.imshow(img, interpolation='none', animated=True, label="blah")
+        plt_ax = plt.gca()
+
+        for k in range(3):
+            observation = env.reset()
+            print("init done")
+            time.sleep(2)
+            for i in range(30):
+                if i % 5 == 0:
+                    # action = env.action_space.sample() # this doesn't work
+                    action = np.random.uniform(low=-1.0, high=1.0, size=(6))
+                observation, reward, done, info = env.step(action)
+                plt_img.set_data(observation[0])
+                plt_ax.plot([0])
+                plt.pause(0.001)  # I found this necessary - otherwise no visible img
+                print(action, observation[0].shape, observation[1], reward, done)
+                print(".")
+
+        env.close()
+
+        print('simulation ended. leaving in 5 seconds...')
         time.sleep(2)
-        for i in range(30):
-            if i % 5 == 0:
-                # action = env.action_space.sample() # this doesn't work
-                action = np.random.uniform(low=-1.0, high=1.0, size=(6))
-            observation, reward, done, info = env.step(action)
-            plt_img.set_data(observation[0])
-            plt_ax.plot([0])
-            plt.pause(0.001)  # I found this necessary - otherwise no visible img
-            print(action, observation[0].shape, observation[1], reward, done)
-            print(".")
 
-    env.close()
+    def test_fencing_defence():
+        env = gym.make("ErgoFightStatic-Graphical-Fencing-Defense-v0")
 
-    print('simulation ended. leaving in 5 seconds...')
-    time.sleep(2)
+        env.reset()
+
+        for _ in range(50):
+            act = env.action_space.sample()
+            obs, rew, _, _ = env.step(act)
+            print (act, obs, rew)
+
+    test_fencing_defence()
