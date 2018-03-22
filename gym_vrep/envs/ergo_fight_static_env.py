@@ -23,6 +23,7 @@ RANDOM_NOISE = [
 ]
 INVULNERABILITY_AFTER_HIT = 3  # how many frames after a hit to reset
 IMAGE_SIZE = (84, 84)
+SWORD_ONLY_RANDOM_MOVE = 30  # move every N frames randomly in case the attacker can't reach the sword
 
 
 class ErgoFightStaticEnv(gym.Env):
@@ -200,6 +201,7 @@ class ErgoFightStaticEnv(gym.Env):
 
         robot = 0
 
+        attacker_action = []
         if self.defence:
             attacker_action = self.prep_actions(self.inf.get_action(self.observation))
             self._gotoPos(attacker_action, robot=0)
@@ -208,13 +210,15 @@ class ErgoFightStaticEnv(gym.Env):
         self._gotoPos(actions, robot=robot)
         self.venv.step_blocking_simulation()
 
-        if not self.defence and self.step_in_episode % 5 == 0:
+        if (not self.sword_only and not self.defence and self.step_in_episode % 5 == 0) or \
+                (self.sword_only and self.step_in_episode % SWORD_ONLY_RANDOM_MOVE == 0):
+            print("randomizing, episode", self.step_in_episode)
             self.randomize(1)
 
         # observe again
         self._self_observe()
 
-        return self.observation, self._getReward(), self.done, {"attacker":attacker_action}
+        return self.observation, self._getReward(), self.done, {"attacker": attacker_action}
 
     def _close(self):
         self.venv.stop_simulation()
@@ -233,6 +237,7 @@ class ErgoFightStaticEnv(gym.Env):
 if __name__ == '__main__':
     import gym_vrep
     import matplotlib.pyplot as plt
+
 
     def test_normal_mode():
 
@@ -263,6 +268,7 @@ if __name__ == '__main__':
         print('simulation ended. leaving in 5 seconds...')
         time.sleep(2)
 
+
     def test_fencing_defence():
         env = gym.make("ErgoFightStatic-Headless-Fencing-Defence-v0")
 
@@ -273,7 +279,7 @@ if __name__ == '__main__':
             act = env.action_space.sample()
             obs, rew, _, misc = env.step(act)
             # print (act, obs, rew)
-            print (rew)
+            print(rew)
             # att_actions.append(misc["attacker"])
 
         ## PLOT ACTIONS
@@ -285,7 +291,6 @@ if __name__ == '__main__':
         #     plt.plot(range(len(att_actions)), att_actions[:,i])
         #
         # plt.show()
-
 
         ### PLOT OBSERVATIONS
 
@@ -316,7 +321,6 @@ if __name__ == '__main__':
         # plt.show()
 
 
-
     def test_swordonly_mode():
 
         env = gym.make("ErgoFightStatic-Graphical-Fencing-Swordonly-v0")
@@ -337,5 +341,6 @@ if __name__ == '__main__':
 
         print('simulation ended. leaving in 3 seconds...')
         time.sleep(3)
+
 
     test_swordonly_mode()
