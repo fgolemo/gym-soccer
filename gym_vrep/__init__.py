@@ -217,6 +217,22 @@ register(
 )
 
 register(
+    id='ErgoFightStatic-Graphical-Fencing-Swordonly-v0',
+    entry_point='gym_vrep.envs:ErgoFightStaticEnv',
+    timestep_limit=150,
+    reward_threshold=150,
+    kwargs={'headless': False, 'fencing_mode': True, 'with_img': False, 'sword_only': True},
+)
+
+register(
+    id='ErgoFightStatic-Headless-Fencing-Swordonly-v0',
+    entry_point='gym_vrep.envs:ErgoFightStaticEnv',
+    timestep_limit=150,
+    reward_threshold=150,
+    kwargs={'headless': True, 'fencing_mode': True, 'with_img': False, 'sword_only': True},
+)
+
+register(
     id='ErgoFightStatic-Graphical-Fencing-Defense-v0',
     entry_point='gym_vrep.envs:ErgoFightStaticEnv',
     timestep_limit=150,

@@ -28,12 +28,13 @@ IMAGE_SIZE = (84, 84)
 
 class ErgoFightStaticEnv(gym.Env):
     def __init__(self, headless=True, with_img=True,
-                 only_img=False, fencing_mode=False, defence=False):
+                 only_img=False, fencing_mode=False, defence=False, sword_only=False):
         self.headless = headless
         self.with_img = with_img
         self.only_img = only_img
         self.fencing_mode = fencing_mode
         self.defence = defence
+        self.sword_only = sword_only
 
         if self.defence:
             # load up the inference model for the attacker
@@ -74,7 +75,14 @@ class ErgoFightStaticEnv(gym.Env):
         self.venv = vrepper(headless=headless)
         self.venv.start()
         current_dir = os.path.dirname(os.path.realpath(__file__))
-        self.venv.load_scene(current_dir + '/../scenes/poppy_ergo_jr_fight_sword1.ttt')
+
+        scene = current_dir + '/../scenes/poppy_ergo_jr_fight_sword{}.ttt'
+        if self.sword_only:
+            scene = scene.format("_only_sword")
+        else:
+            scene = scene.format("1")
+
+        self.venv.load_scene(scene)
         self.motors = ([], [])
         for robot_idx in range(2):
             for motor_idx in range(6):
@@ -259,4 +267,25 @@ if __name__ == '__main__':
             obs, rew, _, _ = env.step(act)
             print (act, obs, rew)
 
-    test_fencing_defence()
+    def test_swordonly_mode():
+
+        env = gym.make("ErgoFightStatic-Graphical-Fencing-Swordonly-v0")
+
+        for k in range(3):
+            observation = env.reset()
+            print("init done")
+            time.sleep(2)
+            for i in range(40):
+                if i % 10 == 0:
+                    # action = env.action_space.sample() # this doesn't work
+                    action = np.random.uniform(low=-1.0, high=1.0, size=(6))
+                observation, reward, done, info = env.step(action)
+                print(action, observation[0].shape, observation[1], reward, done)
+                print(".")
+
+        env.close()
+
+        print('simulation ended. leaving in 3 seconds...')
+        time.sleep(3)
+
+    test_swordonly_mode()
