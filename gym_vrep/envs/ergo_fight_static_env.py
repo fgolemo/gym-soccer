@@ -8,7 +8,6 @@ import logging
 from pytorch_a2c_ppo_acktr.inference import Inference
 from skimage.transform import resize
 from gym_vrep.envs.constants import JOINT_LIMITS, BALL_STATES, RANDOM_NOISE
-from gym_vrep.envs.normalized_wrapper import NormalizedActWrapper, NormalizedObsWrapper
 from vrepper.core import vrepper
 
 logger = logging.getLogger(__name__)
@@ -35,12 +34,13 @@ class ErgoFightStaticEnv(gym.Env):
         self.fencing_mode = fencing_mode
         self.defence = defence
         self.sword_only = sword_only
+        self.step_in_episode = 0
 
         if self.defence:
             # load up the inference model for the attacker
             self.inf = Inference("/home/florian/dev/pytorch-a2c-ppo-acktr/"
                                  "trained_models/ppo/"
-                                 "ErgoFightStatic-Headless-Fencing-v0-180209225957.pt")
+                                 "ErgoFightStatic-Headless-Fencing-v0-180301140937.pt")
 
         self._startEnv(headless)
 
@@ -48,7 +48,7 @@ class ErgoFightStaticEnv(gym.Env):
             'render.modes': ['human', 'rgb_array']
         }
 
-        joint_boxes = spaces.Box(low=-1, high=1, shape=6)
+        joint_boxes = spaces.Box(low=-1, high=1, shape=(6,))
 
         if self.with_img:
             cam_image = spaces.Box(low=0, high=255, shape=(IMAGE_SIZE[0], IMAGE_SIZE[1], 3))
@@ -56,11 +56,11 @@ class ErgoFightStaticEnv(gym.Env):
             if self.only_img:
                 self.observation_space = cam_image
             else:
-                own_joints = spaces.Box(low=-1, high=1, shape=(6 + 6))  # 6 joint pos, 6 joint vel
+                own_joints = spaces.Box(low=-1, high=1, shape=(6 + 6,))  # 6 joint pos, 6 joint vel
                 self.observation_space = spaces.Tuple((cam_image, own_joints))
         else:
             # 6 own joint pos, 6 own joint vel, 6 enemy joint pos, 6 enemy joint vel
-            all_joints = spaces.Box(low=-1, high=1, shape=(6 + 6 + 6 + 6))
+            all_joints = spaces.Box(low=-1, high=1, shape=(6 + 6 + 6 + 6,))
             self.observation_space = all_joints
 
         self.action_space = joint_boxes
@@ -114,6 +114,7 @@ class ErgoFightStaticEnv(gym.Env):
             self.motors[robot][i].set_position_target(new_pos)
 
     def _reset(self):
+        self.step_in_episode = 0
         self._restPos()
         self._self_observe()
         self.frames_after_hit = -1  # this enables hits / disables invulnerability frame
@@ -188,27 +189,32 @@ class ErgoFightStaticEnv(gym.Env):
             out.append(denorm)
         return out
 
-    def _step(self, actions):
+    def prep_actions(self, actions):
         actions = np.clip(actions, -1, 1)  # first make sure actions are normalized
         actions = self._denormalize(actions)  # then scale them to the actual joint angles
+        return actions
+
+    def _step(self, actions):
+        self.step_in_episode += 1
+        actions = self.prep_actions(actions)
+
         robot = 0
 
-        # step
         if self.defence:
-            attacker_action = self.inf.get_action(self.observation)
+            attacker_action = self.prep_actions(self.inf.get_action(self.observation))
             self._gotoPos(attacker_action, robot=0)
             robot = 1
-
-            #TODO: why is this less aggressive than the direct inference???
-
 
         self._gotoPos(actions, robot=robot)
         self.venv.step_blocking_simulation()
 
+        if not self.defence and self.step_in_episode % 5 == 0:
+            self.randomize(1)
+
         # observe again
         self._self_observe()
 
-        return self.observation, self._getReward(), self.done, {}
+        return self.observation, self._getReward(), self.done, {"attacker":attacker_action}
 
     def _close(self):
         self.venv.stop_simulation()
@@ -258,14 +264,58 @@ if __name__ == '__main__':
         time.sleep(2)
 
     def test_fencing_defence():
-        env = gym.make("ErgoFightStatic-Graphical-Fencing-Defense-v0")
+        env = gym.make("ErgoFightStatic-Headless-Fencing-Defence-v0")
 
         env.reset()
 
-        for _ in range(50):
+        # att_actions = []
+        for _ in range(100):
             act = env.action_space.sample()
-            obs, rew, _, _ = env.step(act)
-            print (act, obs, rew)
+            obs, rew, _, misc = env.step(act)
+            # print (act, obs, rew)
+            print (rew)
+            # att_actions.append(misc["attacker"])
+
+        ## PLOT ACTIONS
+
+        # att_actions = np.array(att_actions)
+        # print (att_actions.shape)
+        #
+        # for i in range(6):
+        #     plt.plot(range(len(att_actions)), att_actions[:,i])
+        #
+        # plt.show()
+
+
+        ### PLOT OBSERVATIONS
+
+        # obs_buffer = np.array(env.env.inf.obs_buffer2)
+        #
+        # f, axarr = plt.subplots(2, 2)
+        #
+        # plot_pos = 0
+        # plot_vel = 0
+        # title = "robot 0 pos"
+        # for i in range(24):
+        #     if i == 6:
+        #         plot_vel = 1
+        #         title = "robot 0 vel"
+        #     if i == 12:
+        #         plot_vel = 0
+        #         plot_pos = 1
+        #         title = "robot 1 pos"
+        #     if i == 18:
+        #         plot_vel = 1
+        #         title = "robot 1 vel"
+        #
+        #     axarr[plot_vel, plot_pos].plot(range(len(obs_buffer)), obs_buffer[:, i],
+        #                                    label=int(i - (np.floor(i / 6) * 6)))
+        #     axarr[plot_vel, plot_pos].set_title(title)
+        #     axarr[plot_vel, plot_pos].legend()
+        #
+        # plt.show()
+
+
 
     def test_swordonly_mode():
 

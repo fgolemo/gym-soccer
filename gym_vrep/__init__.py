@@ -233,7 +233,7 @@ register(
 )
 
 register(
-    id='ErgoFightStatic-Graphical-Fencing-Defense-v0',
+    id='ErgoFightStatic-Graphical-Fencing-Defence-v0',
     entry_point='gym_vrep.envs:ErgoFightStaticEnv',
     timestep_limit=150,
     reward_threshold=150,
@@ -241,7 +241,7 @@ register(
 )
 
 register(
-    id='ErgoFightStatic-Headless-Fencing-Defense-v0',
+    id='ErgoFightStatic-Headless-Fencing-Defence-v0',
     entry_point='gym_vrep.envs:ErgoFightStaticEnv',
     timestep_limit=150,
     reward_threshold=150,
