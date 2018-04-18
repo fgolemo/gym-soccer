@@ -28,13 +28,14 @@ SWORD_ONLY_RANDOM_MOVE = 30  # move every N frames randomly in case the attacker
 
 class ErgoFightStaticEnv(gym.Env):
     def __init__(self, headless=True, with_img=True,
-                 only_img=False, fencing_mode=False, defence=False, sword_only=False):
+                 only_img=False, fencing_mode=False, defence=False, sword_only=False, fat=False):
         self.headless = headless
         self.with_img = with_img
         self.only_img = only_img
         self.fencing_mode = fencing_mode
         self.defence = defence
         self.sword_only = sword_only
+        self.fat = fat
         self.step_in_episode = 0
 
         if self.defence:
@@ -79,9 +80,13 @@ class ErgoFightStaticEnv(gym.Env):
 
         scene = current_dir + '/../scenes/poppy_ergo_jr_fight_sword{}.ttt'
         if self.sword_only:
-            scene = scene.format("_only_sword")
+            file_to_load = "_only_sword"
+            if self.fat:
+                file_to_load += "_fat"
         else:
-            scene = scene.format("1")
+            file_to_load = "1"
+
+        scene = scene.format(file_to_load)
 
         self.venv.load_scene(scene)
         self.motors = ([], [])
@@ -89,7 +94,10 @@ class ErgoFightStaticEnv(gym.Env):
             for motor_idx in range(6):
                 motor = self.venv.get_object_by_name('r{}m{}'.format(robot_idx + 1, motor_idx + 1), is_joint=True)
                 self.motors[robot_idx].append(motor)
-        self.sword_collision = self.venv.get_collision_object("sword_hit")
+        collision_obj = "sword_hit"
+        if self.fat:
+            collision_obj += "_fat"
+        self.sword_collision = self.venv.get_collision_object(collision_obj)
         self.cam = self.venv.get_object_by_name('cam', is_joint=False).handle
         # self.tip = self.frames_after_hit
 
@@ -342,5 +350,24 @@ if __name__ == '__main__':
         print('simulation ended. leaving in 3 seconds...')
         time.sleep(3)
 
+    def test_swordonly_fat_mode():
 
-    test_swordonly_mode()
+        env = gym.make("ErgoFightStatic-Graphical-Fencing-Swordonly-Fat-v0")
+
+        for k in range(3):
+            _ = env.reset()
+            print("init done")
+            time.sleep(2)
+            for i in range(40):
+                if i % 10 == 0:
+                    # action = env.action_space.sample() # this doesn't work
+                    action = np.random.uniform(low=-1.0, high=1.0, size=(6))
+                observation, reward, done, info = env.step(action)
+
+        env.close()
+
+        print('simulation ended. leaving in 3 seconds...')
+        time.sleep(3)
+
+
+    test_swordonly_fat_mode()
