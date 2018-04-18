@@ -106,9 +106,9 @@ class ErgoFightStaticEnv(gym.Env):
         for _ in range(15):  # TODO test if 15 frames is enough
             self.venv.step_blocking_simulation()
 
-    def randomize(self, robot=1):
+    def randomize(self, robot=1, scaling = 1.0):
         for i in range(6):
-            new_pos = REST_POS[i] + np.random.randint(
+            new_pos = REST_POS[i] + scaling * np.random.randint(
                 low=RANDOM_NOISE[i][0],
                 high=RANDOM_NOISE[i][1],
                 size=1)[0]
@@ -212,8 +212,8 @@ class ErgoFightStaticEnv(gym.Env):
 
         if (not self.sword_only and not self.defence and self.step_in_episode % 5 == 0) or \
                 (self.sword_only and self.step_in_episode % SWORD_ONLY_RANDOM_MOVE == 0):
-            print("randomizing, episode", self.step_in_episode)
-            self.randomize(1)
+            #print("randomizing, episode", self.step_in_episode)
+            self.randomize(1, scaling=0.5)
 
         # observe again
         self._self_observe()
