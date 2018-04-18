@@ -35,9 +35,9 @@ class ErgoBallThrowVertRandEnv(gym.Env):
     vrep_running = False
 
     def __init__(self):
-        joint_boxes = spaces.Box(low=JOINT_LIMITS_MAXMIN[0], high=JOINT_LIMITS_MAXMIN[1], shape=6)
+        joint_boxes = spaces.Box(low=JOINT_LIMITS_MAXMIN[0], high=JOINT_LIMITS_MAXMIN[1], shape=(6,))
 
-        force_boxes = (joint_boxes, spaces.Box(low=FORCE_LIMITS[0], high=FORCE_LIMITS[1], shape=(6)))
+        force_boxes = (joint_boxes, spaces.Box(low=FORCE_LIMITS[0], high=FORCE_LIMITS[1], shape=(6,)))
 
         self.observation_space = spaces.Tuple(force_boxes)
         self.action_space = spaces.Tuple(joint_boxes)
