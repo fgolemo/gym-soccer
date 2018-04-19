@@ -28,7 +28,8 @@ SWORD_ONLY_RANDOM_MOVE = 30  # move every N frames randomly in case the attacker
 
 class ErgoFightStaticEnv(gym.Env):
     def __init__(self, headless=True, with_img=True,
-                 only_img=False, fencing_mode=False, defence=False, sword_only=False, fat=False):
+                 only_img=False, fencing_mode=False, defence=False,
+                 sword_only=False, fat=False, no_move=False, scaling=1):
         self.headless = headless
         self.with_img = with_img
         self.only_img = only_img
@@ -36,6 +37,9 @@ class ErgoFightStaticEnv(gym.Env):
         self.defence = defence
         self.sword_only = sword_only
         self.fat = fat
+        self.no_move = no_move
+        self.scaling = scaling
+
         self.step_in_episode = 0
 
         if self.defence:
@@ -109,7 +113,7 @@ class ErgoFightStaticEnv(gym.Env):
         for i, m in enumerate(self.motors[0]):
             m.set_position_target(REST_POS[i])
 
-        self.randomize(robot=1)
+        self.randomize(robot=1, scaling=self.scaling)
 
         for _ in range(15):  # TODO test if 15 frames is enough
             self.venv.step_blocking_simulation()
@@ -218,10 +222,11 @@ class ErgoFightStaticEnv(gym.Env):
         self._gotoPos(actions, robot=robot)
         self.venv.step_blocking_simulation()
 
-        if (not self.sword_only and not self.defence and self.step_in_episode % 5 == 0) or \
-                (self.sword_only and self.step_in_episode % SWORD_ONLY_RANDOM_MOVE == 0):
-            #print("randomizing, episode", self.step_in_episode)
-            self.randomize(1, scaling=0.5)
+        if not self.no_move:
+            if (not self.sword_only and not self.defence and self.step_in_episode % 5 == 0) or \
+                    (self.sword_only and self.step_in_episode % SWORD_ONLY_RANDOM_MOVE == 0):
+                #print("randomizing, episode", self.step_in_episode)
+                self.randomize(1, scaling=self.scaling)
 
         # observe again
         self._self_observe()
@@ -352,7 +357,7 @@ if __name__ == '__main__':
 
     def test_swordonly_fat_mode():
 
-        env = gym.make("ErgoFightStatic-Graphical-Fencing-Swordonly-Fat-v0")
+        env = gym.make("ErgoFightStatic-Graphical-Fencing-Swordonly-Fat-NoMove-HalfRand-v0")
 
         for k in range(3):
             _ = env.reset()

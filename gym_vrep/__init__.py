@@ -249,6 +249,24 @@ register(
 )
 
 register(
+    id='ErgoFightStatic-Graphical-Fencing-Swordonly-Fat-NoMove-HalfRand-v0',
+    entry_point='gym_vrep.envs:ErgoFightStaticEnv',
+    timestep_limit=150,
+    reward_threshold=150,
+    kwargs={'headless': False, 'fencing_mode': True, 'with_img': False, 'sword_only': True, 'fat': True,
+            'no_move': True, 'scaling': 0.5},
+)
+
+register(
+    id='ErgoFightStatic-Headless-Fencing-Swordonly-Fat-NoMove-HalfRand-v0',
+    entry_point='gym_vrep.envs:ErgoFightStaticEnv',
+    timestep_limit=150,
+    reward_threshold=150,
+    kwargs={'headless': True, 'fencing_mode': True, 'with_img': False, 'sword_only': True, 'fat': True,
+            'no_move': True, 'scaling': 0.5},
+)
+
+register(
     id='ErgoFightStatic-Graphical-Fencing-Defence-v0',
     entry_point='gym_vrep.envs:ErgoFightStaticEnv',
     timestep_limit=150,
