@@ -29,7 +29,7 @@ SWORD_ONLY_RANDOM_MOVE = 30  # move every N frames randomly in case the attacker
 class ErgoFightStaticEnv(gym.Env):
     def __init__(self, headless=True, with_img=True,
                  only_img=False, fencing_mode=False, defence=False,
-                 sword_only=False, fat=False, no_move=False, scaling=1):
+                 sword_only=False, fat=False, no_move=False, scaling=1, shield = False):
         self.headless = headless
         self.with_img = with_img
         self.only_img = only_img
@@ -39,6 +39,7 @@ class ErgoFightStaticEnv(gym.Env):
         self.fat = fat
         self.no_move = no_move
         self.scaling = scaling
+        self.shield = shield
 
         self.step_in_episode = 0
 
@@ -82,13 +83,15 @@ class ErgoFightStaticEnv(gym.Env):
         self.venv.start()
         current_dir = os.path.dirname(os.path.realpath(__file__))
 
-        scene = current_dir + '/../scenes/poppy_ergo_jr_fight_sword{}.ttt'
-        if self.sword_only:
-            file_to_load = "_only_sword"
+        scene = current_dir + '/../scenes/poppy_ergo_jr_fight_{}.ttt'
+        if self.shield:
+            file_to_load = "shield"
+        elif self.sword_only:
+            file_to_load = "sword_only_sword"
             if self.fat:
                 file_to_load += "_fat"
         else:
-            file_to_load = "1"
+            file_to_load = "sword1"
 
         scene = scene.format(file_to_load)
 
@@ -374,5 +377,36 @@ if __name__ == '__main__':
         print('simulation ended. leaving in 3 seconds...')
         time.sleep(3)
 
+    def test_shield_nomove():
+        env = gym.make("ErgoFightStatic-Graphical-Shield-NoMove-ThreequarterRand-v0")
+        for k in range(3):
+            _ = env.reset()
+            print("init done")
+            time.sleep(2)
+            for i in range(40):
+                if i % 10 == 0:
+                    action = np.random.uniform(low=-1.0, high=1.0, size=(6))
+                _ = env.step(action)
 
-    test_swordonly_fat_mode()
+        env.close()
+
+        print('simulation ended. leaving in 3 seconds...')
+        time.sleep(3)
+
+    def test_shield_move():
+        env = gym.make("ErgoFightStatic-Graphical-Shield-Move-ThreequarterRand-v0")
+        for k in range(3):
+            _ = env.reset()
+            print("init done")
+            time.sleep(2)
+            for i in range(40):
+                if i % 10 == 0:
+                    action = np.random.uniform(low=-1.0, high=1.0, size=(6))
+                _ = env.step(action)
+
+        env.close()
+
+        print('simulation ended. leaving in 3 seconds...')
+        time.sleep(3)
+
+    test_shield_nomove()
