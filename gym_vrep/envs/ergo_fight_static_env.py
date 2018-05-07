@@ -7,7 +7,7 @@ import logging
 
 from pytorch_a2c_ppo_acktr.inference import Inference
 from skimage.transform import resize
-from gym_vrep.envs.constants import JOINT_LIMITS, BALL_STATES, RANDOM_NOISE
+from gym_vrep.envs.constants import JOINT_LIMITS, BALL_STATES, RANDOM_NOISE, MOVE_EVERY_N_STEPS
 from vrepper.core import vrepper
 
 logger = logging.getLogger(__name__)
@@ -23,7 +23,6 @@ RANDOM_NOISE = [
 ]
 INVULNERABILITY_AFTER_HIT = 3  # how many frames after a hit to reset
 IMAGE_SIZE = (84, 84)
-SWORD_ONLY_RANDOM_MOVE = 30  # move every N frames randomly in case the attacker can't reach the sword
 
 
 class ErgoFightStaticEnv(gym.Env):
@@ -118,7 +117,7 @@ class ErgoFightStaticEnv(gym.Env):
 
         self.randomize(robot=1, scaling=self.scaling)
 
-        for _ in range(15):  # TODO test if 15 frames is enough
+        for _ in range(20):
             self.venv.step_blocking_simulation()
 
     def randomize(self, robot=1, scaling = 1.0):
@@ -227,7 +226,7 @@ class ErgoFightStaticEnv(gym.Env):
 
         if not self.no_move:
             if (not self.sword_only and not self.defence and self.step_in_episode % 5 == 0) or \
-                    (self.sword_only and self.step_in_episode % SWORD_ONLY_RANDOM_MOVE == 0):
+                    (self.sword_only and self.step_in_episode % MOVE_EVERY_N_STEPS == 0):
                 #print("randomizing, episode", self.step_in_episode)
                 self.randomize(1, scaling=self.scaling)
 
@@ -399,14 +398,14 @@ if __name__ == '__main__':
             _ = env.reset()
             print("init done")
             time.sleep(2)
-            for i in range(40):
-                if i % 10 == 0:
-                    action = np.random.uniform(low=-1.0, high=1.0, size=(6))
-                _ = env.step(action)
+            done = False
+            while not done:
+                action = np.random.uniform(low=-1.0, high=1.0, size=(6))
+                obs, rew, done, _ = env.step(action)
 
         env.close()
 
         print('simulation ended. leaving in 3 seconds...')
         time.sleep(3)
 
-    test_shield_nomove()
+    test_shield_move()
