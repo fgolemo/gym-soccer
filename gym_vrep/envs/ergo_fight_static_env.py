@@ -7,7 +7,8 @@ import logging
 
 from pytorch_a2c_ppo_acktr.inference import Inference
 from skimage.transform import resize
-from gym_vrep.envs.constants import JOINT_LIMITS, BALL_STATES, RANDOM_NOISE, MOVE_EVERY_N_STEPS
+from gym_vrep.envs.constants import JOINT_LIMITS, BALL_STATES, RANDOM_NOISE, MOVE_EVERY_N_STEPS, JOINT_LIMITS_SPEED
+from tqdm import tqdm
 from vrepper.core import vrepper
 
 logger = logging.getLogger(__name__)
@@ -54,7 +55,7 @@ class ErgoFightStaticEnv(gym.Env):
             'render.modes': ['human', 'rgb_array']
         }
 
-        joint_boxes = spaces.Box(low=-1, high=1, shape=(6,))
+        joint_boxes = spaces.Box(low=-1, high=1, shape=(6,), dtype=np.float32)
 
         if self.with_img:
             cam_image = spaces.Box(low=0, high=255, shape=(IMAGE_SIZE[0], IMAGE_SIZE[1], 3))
@@ -66,7 +67,7 @@ class ErgoFightStaticEnv(gym.Env):
                 self.observation_space = spaces.Tuple((cam_image, own_joints))
         else:
             # 6 own joint pos, 6 own joint vel, 6 enemy joint pos, 6 enemy joint vel
-            all_joints = spaces.Box(low=-1, high=1, shape=(6 + 6 + 6 + 6,))
+            all_joints = spaces.Box(low=-1, high=1, shape=(6 + 6 + 6 + 6,), dtype=np.float32)
             self.observation_space = all_joints
 
         self.action_space = joint_boxes
@@ -167,6 +168,7 @@ class ErgoFightStaticEnv(gym.Env):
             vel.append(m.get_joint_velocity()[0])
 
         pos = self._normalize(pos)  # move pos into range [-1,1]
+        vel = self._normalizeVel(vel)
 
         joint_vel = np.hstack((pos, vel)).astype('float32')
         return joint_vel
@@ -195,6 +197,13 @@ class ErgoFightStaticEnv(gym.Env):
             norm = shifted * 2 - 1
             out.append(norm)
         return out
+
+    def _normalizeVel(self, vel):
+        vel = np.array(vel)
+        shifted = (vel + JOINT_LIMITS_SPEED) / (JOINT_LIMITS_SPEED * 2)
+        norm = shifted * 2 - 1
+
+        return norm
 
     def _denormalize(self, actions):
         out = []
@@ -393,19 +402,62 @@ if __name__ == '__main__':
         time.sleep(3)
 
     def test_shield_move():
-        env = gym.make("ErgoFightStatic-Graphical-Shield-Move-ThreequarterRand-v0")
-        for k in range(3):
+        env = gym.make("ErgoFightStatic-Headless-Shield-Move-ThreequarterRand-v0")
+        obs_buf = []
+        for _ in tqdm(range(10)):
             _ = env.reset()
-            print("init done")
-            time.sleep(2)
             done = False
             while not done:
-                action = np.random.uniform(low=-1.0, high=1.0, size=(6))
+                action = env.action_space.sample()
                 obs, rew, done, _ = env.step(action)
+                obs_buf.append(obs)
+
+        obs = np.array(obs_buf)
+        print(obs.shape)
+
+        print("robo 1 pos")
+        print(obs[:,:6].max())
+        print(obs[:,:6].min())
+        print("robo 2 pos")
+        print(obs[:,12:18].max())
+        print(obs[:,12:18].min())
+
+        print("robo 1 vel")
+        print(obs[:,6:12].max())
+        print(obs[:,6:12].min())
+        print("robo 2 vel")
+        print(obs[:,18:24].max())
+        print(obs[:,18:25].min())
 
         env.close()
 
-        print('simulation ended. leaving in 3 seconds...')
-        time.sleep(3)
+    def test_orientation():
+        env = gym.make("ErgoFightStatic-Graphical-Shield-Move-HalfRand-v0")
+        _ = env.reset()
+        # for _ in tqdm(range(200)):
+        #     action = [1,0,0,1,0,0]
+        #     obs, rew, done, _ = env.step(action)
 
-    test_shield_move()
+        for _ in tqdm(range(100)):
+            action = [0,1,-1,0,0,0]
+            obs, rew, done, _ = env.step(action)
+
+        for _ in tqdm(range(100)):
+            action = [0,-1,1,0,0,0]
+            obs, rew, done, _ = env.step(action)
+
+    test_orientation()
+
+
+# robo 1 pos
+# 0.8586047
+# -0.5025676
+# robo 2 pos
+# 1.4171062
+# -1.0011668
+# robo 1 pos
+# 46.274807
+# -63.521507
+# robo 2 pos
+# 85.08411
+# -97.77484

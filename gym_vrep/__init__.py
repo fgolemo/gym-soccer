@@ -321,6 +321,18 @@ register(
 )
 
 register(
+    id='ErgoFightStatic-Graphical-Shield-Move-HalfRand-Plus-v0',
+    entry_point='gym_vrep.envs:ErgoFightPlusEnv',
+    kwargs={'base_env_id': 'ErgoFightStatic-Graphical-Shield-Move-HalfRand-v0'},
+)
+
+register(
+    id='ErgoFightStatic-Headless-Shield-Move-HalfRand-Plus-v0',
+    entry_point='gym_vrep.envs:ErgoFightPlusEnv',
+    kwargs={'base_env_id': 'ErgoFightStatic-Headless-Shield-Move-HalfRand-v0'},
+)
+
+register(
     id='ErgoFightStatic-Graphical-Fencing-Defence-v0',
     entry_point='gym_vrep.envs:ErgoFightStaticEnv',
     timestep_limit=150,

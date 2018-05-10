@@ -1,6 +1,6 @@
 JOINT_LIMITS = [
-    (-150, 150),
-    (-90, 125),
+    (-90, 90),
+    (-90, 90),
     (-90, 90),
     (-90, 90),
     (-90, 90),
@@ -25,3 +25,5 @@ RANDOM_NOISE = [
 JOINT_LIMITS_MAXMIN = [-150, 150]
 
 MOVE_EVERY_N_STEPS = 250
+
+JOINT_LIMITS_SPEED = 97
