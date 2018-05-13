@@ -75,7 +75,7 @@ class ErgoFightStaticEnv(gym.Env):
         self.diffs = [JOINT_LIMITS[i][1] - JOINT_LIMITS[i][0] for i in range(6)]
         self.frames_after_hit = -1  # -1 means no recent hit, anything 0 or above means it's counting
 
-    def _seed(self, seed=None):
+    def seed(self, seed=None):
         np.random.seed(seed)
 
     def _startEnv(self, headless):
@@ -129,7 +129,7 @@ class ErgoFightStaticEnv(gym.Env):
                 size=1)[0]
             self.motors[robot][i].set_position_target(new_pos)
 
-    def _reset(self):
+    def reset(self):
         self.step_in_episode = 0
         self._restPos()
         self._self_observe()
@@ -185,10 +185,15 @@ class ErgoFightStaticEnv(gym.Env):
         else:
             enemy_joint_vel = self._get_robot_posvel(1)
             self.observation = np.hstack((own_joint_vel, enemy_joint_vel)).astype('float32')
+        return self.observation
 
     def _gotoPos(self, pos, robot=0):
         for i, m in enumerate(self.motors[robot]):
             m.set_position_target(pos[i])
+
+    def _forcePos(self, pos, robot=0):
+        for i, m in enumerate(self.motors[robot]):
+            m.force_position(pos[i])
 
     def _normalize(self, pos):
         out = []
@@ -213,12 +218,23 @@ class ErgoFightStaticEnv(gym.Env):
             out.append(denorm)
         return out
 
+    def _denormalizeVel(self, vel):
+        vel = np.array(vel) # now it's in range [-1;1]
+        shifted = (vel + 1)/2 # now it's in range [0;1]
+        denorm = (shifted * JOINT_LIMITS_SPEED * 2) - JOINT_LIMITS_SPEED
+        return denorm
+
     def prep_actions(self, actions):
         actions = np.clip(actions, -1, 1)  # first make sure actions are normalized
         actions = self._denormalize(actions)  # then scale them to the actual joint angles
         return actions
 
-    def _step(self, actions):
+    def set_state(self, pos, vel):
+        self._forcePos(pos, robot=0)
+        #TODO: velocity is currently not being set. Check if this is necessary.
+        #TODO: this could be done via simxSetObjectFloatParameter (param 3000-3002)
+
+    def step(self, actions):
         self.step_in_episode += 1
         actions = self.prep_actions(actions)
 
@@ -244,11 +260,11 @@ class ErgoFightStaticEnv(gym.Env):
 
         return self.observation, self._getReward(), self.done, {"attacker": attacker_action}
 
-    def _close(self):
+    def close(self):
         self.venv.stop_simulation()
         self.venv.end()
 
-    def _render(self, mode='human', close=False):
+    def render(self, mode='human', close=False):
         # This intentionally does nothing and is only here for wrapper functions.
         # if you want graphical output, use the environments
         # "ErgoBallThrowAirtime-Graphical-Normalized-v0"
@@ -439,15 +455,19 @@ if __name__ == '__main__':
         #     obs, rew, done, _ = env.step(action)
 
         for _ in tqdm(range(100)):
-            action = [0,1,-1,0,0,0]
+            action = [1,1,-1,1,1,-1]
             obs, rew, done, _ = env.step(action)
+        print (obs)
 
         for _ in tqdm(range(100)):
             action = [0,-1,1,0,0,0]
             obs, rew, done, _ = env.step(action)
+        print (obs)
 
     test_orientation()
 
+input = [1,1,-1,1,1,-1]
+output = [1, 1, -1,  1, 1, -1]
 
 # robo 1 pos
 # 0.8586047

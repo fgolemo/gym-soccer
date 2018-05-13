@@ -8,3 +8,4 @@ from gym_vrep.envs.ergo_ball_throw_vert_rand_env import ErgoBallThrowVertRandEnv
 from gym_vrep.envs.ergo_ball_throw_vert_max_env import ErgoBallThrowVertMaxEnv
 from gym_vrep.envs.ergo_ball_throw_airtime_env import ErgoBallThrowAirtimeEnv, ErgoBallThrowAirtimeNormGEnv, ErgoBallThrowAirtimeNormHEnv
 from gym_vrep.envs.ergo_fight_static_env import ErgoFightStaticEnv
+from gym_vrep.envs.ergo_fight_plus import ErgoFightPlusEnv

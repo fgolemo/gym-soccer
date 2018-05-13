@@ -1,14 +1,16 @@
 import gym
 import numpy as np
-from gym_vrep.models.model_lstm import ModelLstm
-from torch import from_numpy, load
+import torch
+from gym_vrep.models.model_lstm_v3 import LstmNetRealv3
+from torch import load
 from torch.autograd import Variable
+
 
 class ErgoFightPlusWrapper(gym.Wrapper):
     def __init__(self, env):
         super(ErgoFightPlusWrapper, self).__init__(env)
         self.env = env
-        self.load_model(ModelLstm(), "../models/lstm_v4_5l_256n.pt")
+        self.load_model(LstmNetRealv3(nodes=128, layers=5), "../models/lstm_v2_exp6_l5_n128.pt")
 
     def load_model(self, net, modelPath):
         self.net = net
@@ -17,65 +19,48 @@ class ErgoFightPlusWrapper(gym.Wrapper):
         self.net.eval()
         print("DBG: MODEL LOADED:", modelPath)
 
-    def _normalize(self, state):
-        state[:3] -= PUSHER3DOF_POS_MIN  # add the minimum
-        state[:3] /= PUSHER3DOF_POS_DIFF  # divide by range to bring into [0,1]
+    @staticmethod
+    def double_unsqueeze(data):
+        return torch.unsqueeze(torch.unsqueeze(data, dim=0), dim=0)
 
-        state[3:] -= PUSHER3DOF_VEL_MIN
-        state[3:] /= PUSHER3DOF_VEL_DIFF
+    @staticmethod
+    def double_squeeze(data):
+        return torch.squeeze(torch.squeeze(data)).data.cpu().numpy()
 
-        state *= 2  # double and
-        state -= 1  # shift left by one to bring into range [-1,1]
+    def data_to_var(self, sim_t2, real_t1, action):
+        return Variable(
+            self.double_unsqueeze(torch.cat(
+                [torch.from_numpy(sim_t2),
+                 torch.from_numpy(real_t1),
+                 torch.from_numpy(action)], dim=0)))
 
-        return state
+    def step(self, action):
+        obs_real_t1 = self.unwrapped._self_observe()
+        obs_sim_t2, rew, done, info = self.unwrapped.step(action)
 
-    def _denormalize(self, state):
-        state += 1
-        state /= 2 # now it's back in range [0,1]
+        variable = self.data_to_var(obs_sim_t2[:12].copy(), obs_real_t1[:12].copy(), np.array(action).copy())
 
-        state[:3] *= PUSHER3DOF_POS_DIFF
-        state[:3] += PUSHER3DOF_POS_MIN # now it's uncentered and shifted
+        obs_real_t2_delta = self.double_squeeze(self.net.forward(variable))
 
-        state[3:] *= PUSHER3DOF_VEL_DIFF
-        state[3:] += PUSHER3DOF_VEL_MIN
+        obs_real_t2 = obs_sim_t2[:12].copy() + obs_real_t2_delta
 
-        return state
+        obs_real_t2_clip = np.clip(obs_real_t2, -1, 1)
 
-
-    def _create_input(self, obs_next, action, obs_current):
-        _input = np.hstack([
-            self._normalize(obs_next[:6]),
-            self._normalize(obs_current[:6]),
-            action
-        ])
-        return Variable(from_numpy(_input).float().unsqueeze(0).unsqueeze(0), volatile=True)
-
-    def _step(self, action):
-        obs_current = self.env.env._get_obs()
-        obs_next, rew, done, info = self.env.step(action)
-        variable = self._create_input(obs_next.copy(), action.copy(), obs_current.copy())
-        obs_correction = self.net.forward(variable).data.cpu().squeeze(0).squeeze(0).numpy()
-        # print(np.around(obs_next, 2), np.around(obs_correction.data.cpu().numpy(), 2))
-
-        qpos = self.env.env.model.data.qpos.ravel().copy()
-        qvel = self.env.env.model.data.qvel.ravel().copy()
-
-        # FIRST NORMALIZE SIMULATED RESULTS,
-        normalized_obs = self._normalize(obs_next[:6].copy())
-        # THEN APPLY CORRECTION,
-        corrected_obs = normalized_obs + obs_correction
         # DENORMALIZE, AND APPLY INTERNALLY
-        denormalized_obs = self._denormalize(corrected_obs)
+        obs_real_t2_denorm_pos = self.unwrapped._denormalize(obs_real_t2_clip[:6])
+        obs_real_t2_denorm_vel = self.unwrapped._denormalizeVel(obs_real_t2_clip[6:])
 
-        qpos = np.hstack((denormalized_obs[:3], qpos[3:]))
-        qvel = np.hstack((denormalized_obs[3:], qvel[3:]))
+        self.unwrapped.set_state(obs_real_t2_denorm_pos, obs_real_t2_denorm_vel)
 
-        self.env.env.set_state(qpos, qvel)
+        # print("real t1:", obs_real_t1[:12].round(2))
+        # print("sim_ t2:", obs_sim_t2[:12].round(2))
+        # print("action_:", action.round(2))
+        # print("real t2:", obs_real_t2[:12].round(2))
+        # print("===")
 
-        # Update the environnement with the new state
-        return self.env.env._get_obs(), rew, done, info
+        return self.unwrapped._self_observe(), rew, done, info
 
-    def _reset(self):
+    def reset(self):
         self.net.zero_hidden()  # !important
         self.net.hidden[0].detach_()  # !important
         self.net.hidden[1].detach_()  # !important
@@ -87,4 +72,11 @@ def ErgoFightPlusEnv(base_env_id):
 
 
 if __name__ == '__main__':
-    env = gym.make("ErgoFightStatic-Graphical-Shield-Move-HalfRand-Plus-v0")
+    env = gym.make("ErgoFightStatic-Headless-Shield-Move-HalfRand-Plus-v0")
+
+    env.reset()
+
+    for episode in range(1):
+        for step in range(5):
+            action = env.action_space.sample()
+            env.step(action)
