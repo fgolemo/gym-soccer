@@ -13,7 +13,7 @@ class ErgoFightPlusWrapper(gym.Wrapper):
 
         model = "../models/lstm_v2_exp6_l5_n128.pt"
         full_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),model)
-        self.load_model(LstmNetRealv3(nodes=128, layers=5), full_path)
+        self.load_model(LstmNetRealv3(nodes=128, layers=5, cuda=False), full_path)
 
     def load_model(self, net, modelPath):
         self.net = net
