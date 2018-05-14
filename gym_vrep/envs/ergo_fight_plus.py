@@ -39,7 +39,7 @@ class ErgoFightPlusWrapper(gym.Wrapper):
 
     def step(self, action):
         obs_real_t1 = self.unwrapped._self_observe()
-        obs_sim_t2, rew, done, info = self.unwrapped.step(action)
+        obs_sim_t2, _, _, info = self.unwrapped.step(action, dont_terminate = True)
 
         variable = self.data_to_var(obs_sim_t2[:12].copy(), obs_real_t1[:12].copy(), np.array(action).copy())
 
@@ -61,7 +61,7 @@ class ErgoFightPlusWrapper(gym.Wrapper):
         # print("real t2:", obs_real_t2[:12].round(2))
         # print("===")
 
-        return self.unwrapped._self_observe(), rew, done, info
+        return self.unwrapped._self_observe(), self.unwrapped._getReward(), self.unwrapped.done, info
 
     def reset(self):
         self.net.zero_hidden()  # !important
@@ -75,11 +75,11 @@ def ErgoFightPlusEnv(base_env_id):
 
 
 if __name__ == '__main__':
-    env = gym.make("ErgoFightStatic-Headless-Shield-Move-HalfRand-Plus-v0")
+    env = gym.make("ErgoFightStatic-Graphical-Shield-Move-HalfRand-Plus-v0")
 
     env.reset()
 
     for episode in range(1):
-        for step in range(5):
+        for step in range(50):
             action = env.action_space.sample()
             env.step(action)

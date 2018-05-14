@@ -29,7 +29,7 @@ IMAGE_SIZE = (84, 84)
 class ErgoFightStaticEnv(gym.Env):
     def __init__(self, headless=True, with_img=True,
                  only_img=False, fencing_mode=False, defence=False,
-                 sword_only=False, fat=False, no_move=False, scaling=1, shield = False):
+                 sword_only=False, fat=False, no_move=False, scaling=1, shield=False):
         self.headless = headless
         self.with_img = with_img
         self.only_img = only_img
@@ -121,7 +121,7 @@ class ErgoFightStaticEnv(gym.Env):
         for _ in range(20):
             self.venv.step_blocking_simulation()
 
-    def randomize(self, robot=1, scaling = 1.0):
+    def randomize(self, robot=1, scaling=1.0):
         for i in range(6):
             new_pos = REST_POS[i] + scaling * np.random.randint(
                 low=RANDOM_NOISE[i][0],
@@ -219,8 +219,8 @@ class ErgoFightStaticEnv(gym.Env):
         return out
 
     def _denormalizeVel(self, vel):
-        vel = np.array(vel) # now it's in range [-1;1]
-        shifted = (vel + 1)/2 # now it's in range [0;1]
+        vel = np.array(vel)  # now it's in range [-1;1]
+        shifted = (vel + 1) / 2  # now it's in range [0;1]
         denorm = (shifted * JOINT_LIMITS_SPEED * 2) - JOINT_LIMITS_SPEED
         return denorm
 
@@ -231,10 +231,14 @@ class ErgoFightStaticEnv(gym.Env):
 
     def set_state(self, pos, vel):
         self._forcePos(pos, robot=0)
-        #TODO: velocity is currently not being set. Check if this is necessary.
-        #TODO: this could be done via simxSetObjectFloatParameter (param 3000-3002)
 
-    def step(self, actions):
+        # TODO: velocity is currently not being set. Check if this is necessary.
+        # TODO: this could be done via simxSetObjectFloatParameter (param 3000-3002)
+
+        params = self.venv.create_params()
+        self.venv.call_script_function("resetDynamics", params)
+
+    def step(self, actions, dont_terminate=False):
         self.step_in_episode += 1
         actions = self.prep_actions(actions)
 
@@ -252,13 +256,17 @@ class ErgoFightStaticEnv(gym.Env):
         if not self.no_move:
             if (not self.sword_only and not self.defence and self.step_in_episode % 5 == 0) or \
                     (self.sword_only and self.step_in_episode % MOVE_EVERY_N_STEPS == 0):
-                #print("randomizing, episode", self.step_in_episode)
+                # print("randomizing, episode", self.step_in_episode)
                 self.randomize(1, scaling=self.scaling)
 
         # observe again
         self._self_observe()
 
-        return self.observation, self._getReward(), self.done, {"attacker": attacker_action}
+        rew = None
+        if not dont_terminate:
+            rew = self._getReward()
+
+        return self.observation, rew, self.done, {"attacker": attacker_action}
 
     def close(self):
         self.venv.stop_simulation()
@@ -382,6 +390,7 @@ if __name__ == '__main__':
         print('simulation ended. leaving in 3 seconds...')
         time.sleep(3)
 
+
     def test_swordonly_fat_mode():
 
         env = gym.make("ErgoFightStatic-Graphical-Fencing-Swordonly-Fat-NoMove-HalfRand-v0")
@@ -401,6 +410,7 @@ if __name__ == '__main__':
         print('simulation ended. leaving in 3 seconds...')
         time.sleep(3)
 
+
     def test_shield_nomove():
         env = gym.make("ErgoFightStatic-Graphical-Shield-NoMove-ThreequarterRand-v0")
         for k in range(3):
@@ -417,6 +427,7 @@ if __name__ == '__main__':
         print('simulation ended. leaving in 3 seconds...')
         time.sleep(3)
 
+
     def test_shield_move():
         env = gym.make("ErgoFightStatic-Headless-Shield-Move-ThreequarterRand-v0")
         obs_buf = []
@@ -432,20 +443,21 @@ if __name__ == '__main__':
         print(obs.shape)
 
         print("robo 1 pos")
-        print(obs[:,:6].max())
-        print(obs[:,:6].min())
+        print(obs[:, :6].max())
+        print(obs[:, :6].min())
         print("robo 2 pos")
-        print(obs[:,12:18].max())
-        print(obs[:,12:18].min())
+        print(obs[:, 12:18].max())
+        print(obs[:, 12:18].min())
 
         print("robo 1 vel")
-        print(obs[:,6:12].max())
-        print(obs[:,6:12].min())
+        print(obs[:, 6:12].max())
+        print(obs[:, 6:12].min())
         print("robo 2 vel")
-        print(obs[:,18:24].max())
-        print(obs[:,18:25].min())
+        print(obs[:, 18:24].max())
+        print(obs[:, 18:25].min())
 
         env.close()
+
 
     def test_orientation():
         env = gym.make("ErgoFightStatic-Graphical-Shield-Move-HalfRand-v0")
@@ -455,19 +467,20 @@ if __name__ == '__main__':
         #     obs, rew, done, _ = env.step(action)
 
         for _ in tqdm(range(100)):
-            action = [1,1,-1,1,1,-1]
+            action = [1, 1, -1, 1, 1, -1]
             obs, rew, done, _ = env.step(action)
-        print (obs)
+        print(obs)
 
         for _ in tqdm(range(100)):
-            action = [0,-1,1,0,0,0]
+            action = [0, -1, 1, 0, 0, 0]
             obs, rew, done, _ = env.step(action)
-        print (obs)
+        print(obs)
+
 
     test_orientation()
 
-input = [1,1,-1,1,1,-1]
-output = [1, 1, -1,  1, 1, -1]
+input = [1, 1, -1, 1, 1, -1]
+output = [1, 1, -1, 1, 1, -1]
 
 # robo 1 pos
 # 0.8586047
