@@ -35,7 +35,7 @@ class ErgoFightPlusWrapper(gym.Wrapper):
             self.double_unsqueeze(torch.cat(
                 [torch.from_numpy(sim_t2),
                  torch.from_numpy(real_t1),
-                 torch.from_numpy(action)], dim=0)))
+                 torch.from_numpy(action)], dim=0)), volatile=True)
 
     def step(self, action):
         obs_real_t1 = self.unwrapped._self_observe()
@@ -67,6 +67,7 @@ class ErgoFightPlusWrapper(gym.Wrapper):
         self.net.zero_hidden()  # !important
         self.net.hidden[0].detach_()  # !important
         self.net.hidden[1].detach_()  # !important
+        self.net.zero_grad()
         return self.env.reset()
 
 
@@ -79,7 +80,7 @@ if __name__ == '__main__':
 
     env.reset()
 
-    for episode in range(1):
-        for step in range(50):
+    for episode in range(10):
+        for step in range(1000):
             action = env.action_space.sample()
             env.step(action)
