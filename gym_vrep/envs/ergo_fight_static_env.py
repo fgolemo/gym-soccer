@@ -42,6 +42,7 @@ class ErgoFightStaticEnv(gym.Env):
         self.shield = shield
 
         self.step_in_episode = 0
+        self.randomPos = {0:[],1:[]}
 
         if self.defence:
             # load up the inference model for the attacker
@@ -122,11 +123,13 @@ class ErgoFightStaticEnv(gym.Env):
             self.venv.step_blocking_simulation()
 
     def randomize(self, robot=1, scaling=1.0):
+        self.randomPos[robot] = []
         for i in range(6):
             new_pos = REST_POS[i] + scaling * np.random.randint(
                 low=RANDOM_NOISE[i][0],
                 high=RANDOM_NOISE[i][1],
                 size=1)[0]
+            self.randomPos[robot].append(new_pos)
             self.motors[robot][i].set_position_target(new_pos)
 
     def reset(self):
@@ -230,13 +233,23 @@ class ErgoFightStaticEnv(gym.Env):
         return actions
 
     def set_state(self, pos, vel):
-        self._forcePos(pos, robot=0)
+        self.venv.stop_simulation()
+        self.venv.start_simulation(is_sync=True)
+
+        for i, m in enumerate(self.motors[0]):
+            m.set_position_target(pos[i])
+
+        for i, m in enumerate(self.motors[1]):
+            m.set_position_target(self.randomPos[1][i])
+
+        for _ in range(30):
+            self.venv.step_blocking_simulation()
 
         # TODO: velocity is currently not being set. Check if this is necessary.
         # TODO: this could be done via simxSetObjectFloatParameter (param 3000-3002)
 
-        params = self.venv.create_params()
-        self.venv.call_script_function("resetDynamics", params)
+        # params = self.venv.create_params() #OHNONONONON BAD
+        # self.venv.call_script_function("resetDynamics", params)
 
     def step(self, actions, dont_terminate=False):
         self.step_in_episode += 1

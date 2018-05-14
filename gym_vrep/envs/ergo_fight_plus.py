@@ -1,3 +1,5 @@
+import time
+
 import gym
 import numpy as np
 import torch
@@ -84,3 +86,4 @@ if __name__ == '__main__':
         for step in range(1000):
             action = env.action_space.sample()
             env.step(action)
+
